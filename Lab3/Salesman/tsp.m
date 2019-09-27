@@ -24,7 +24,8 @@
 
    close all;
 %  initialize random number generator and draw coordinates 
-   rand('state',0); cities = rand(n,2); 
+%   rand('state',0); 
+   cities = rand(n,2); 
    ord = [1:n];  op = path(ord,cities);
   
    for jstep=1:ceil(maxsteps);
