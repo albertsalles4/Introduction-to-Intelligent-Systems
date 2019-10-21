@@ -1,96 +1,124 @@
 % Function to apply LVQ1 algorithm to a dataset
 %  data is the entire dataset in a matrix
-%  k is the number of prototypes
+%  k is the number of prototypes per class
 %  n is the learning rate
-%  tmax is the number of epochs
+%  tmax is the minimum number of epochs to consider the error stable
+
 function LVQ1(data, k, n, tmax)
 
-    N = size(data, 1);
-    prototypes = datasample(data, k);
-    points_class1 = data(1:50, :);
-    points_class2 = data(51:end, :);
+    % We have 2 classes so we have 2*k prototypes
+    k = k*2;
     
+    % Size of the whole dataset
+    N = size(data, 1);
+    
+    points_class1 = data(1:N/2,:);
+    points_class2 = data((N/2 + 1):end,:);
+    
+    prototypes = [datasample(points_class1, k/2) ; datasample(points_class2, k/2)];
+
     % Plot initial state of the data
     figure
-    plot(data(:, 1), data(:, 2), 'b.')
+    plot(points_class1(:, 1), points_class1(:, 2), 'b.', 'MarkerSize', 10)
     hold on
-    plot(prototypes(:, 1), prototypes(:, 2), 'ro', 'MarkerFaceColor','r')
-    title('Initial dataset with the prototypes')
+    plot(prototypes(1:k/2, 1), prototypes(1:k/2, 2), 'bo', 'MarkerFaceColor','g', 'MarkerSize', 10)
+    plot(points_class2(:, 1), points_class2(:, 2), 'r.', 'MarkerSize', 10)
+    plot(prototypes(k/2+1:end, 1), prototypes(k/2+1:end, 2), 'ro', 'MarkerFaceColor','g', 'MarkerSize', 10)
+    title('Initial dataset with prototypes')
     xlabel('x')
     ylabel('y')
-    legend('Data points', 'Prototypes')
+    legend('Class 1', 'Prototypes of class 1', 'Class 2', 'Prototypes of class 2')
     hold off
     
-    cost_function = zeros(1, tmax);
-    
-    for t = 1:tmax
+    % List of the error in each epoch
+    error = [];
+    t = 1;
+    equal_epochs = 0;
+    % Loop over the epochs
+    while equal_epochs ~= tmax
+        % Add one element to the error list
+        error = [error 0];
         
+        % We shuffle the indices
         shuffled_indexes = randperm(N);
-        cost = 0;
         
         for idx = shuffled_indexes
             distances = pdist2(data(idx,:),prototypes);
-            [d, p] = min(distances);
+            [~, p] = min(distances);
             
-            for i = 1:k
-                if i == p
-                    prototypes(p,:) = prototypes(p,:) + n*(data(idx,:) - prototypes(i,:));
+            
+            % If the winner belongs to class 1
+            if p <= k/2
+                % If the data point belongs to class 1
+                if idx <= N/2
+                    % Move it closer
+                    prototypes(p,:) = prototypes(p,:) - (n*(prototypes(p,:) - data(idx,:)));
+                % If the data point belongs to class 2
                 else
-                    prototypes(p,:) = prototypes(p,:) - n*(data(idx,:) - prototypes(i,:));
+                    % Move it further
+                    prototypes(p,:) = prototypes(p,:) + (n*(prototypes(p,:) - data(idx,:)));
                 end
-                
+            % If the winner belongs to class 2
+            else
+                % If the data point belongs to class 1
+                if idx <= N/2
+                    % Move it further
+                    prototypes(p,:) = prototypes(p,:) + (n*(prototypes(p,:) - data(idx,:)));
+                % If the data point belongs to class 2
+                else
+                    % Move it closer
+                    prototypes(p,:) = prototypes(p,:) - (n*(prototypes(p,:) - data(idx,:)));
+                end
             end
-            
-            
-            cost = cost + d.^2;
         end
         
-        % Build title for the plot
-        p_title = 'Data set with prototypes with K=';
-        p_title = strcat(p_title, sprintf("%d", k));
-        p_title = strcat(p_title, ', LR=');
-        p_title = strcat(p_title, sprintf("%.2f", n));
-        p_title = strcat(p_title, ', t=');
-        p_title = strcat(p_title, sprintf("%d", t));
+        for i = 1:N
+            distances = pdist2(data(i,:),prototypes);
+            [~, p] = min(distances);
+            
+            if i <= N/2
+                if p > k/2
+                    error(t) = error(t) + 1;
+                end
+            else
+                if p <= k/2
+                    error(t) = error(t) + 1;
+                end
+            end
+        end
         
-        % Plot the data for the current epoch
-        figure
-        plot(data(:, 1), data(:, 2), 'b.')
-        hold on
-        plot(prototypes(:, 1), prototypes(:, 2), 'ro', 'MarkerFaceColor','r')
-        title(p_title)
-        xlabel('x')
-        ylabel('y')
-        legend('Data points', 'Prototypes')
-        hold off
+        error(t) = (error(t)*100)/N;
         
-        cost_function(t) = cost;
+        if t > 1 && error(t-1) == error(t)
+            equal_epochs = equal_epochs + 1;
+        else
+            equal_epochs = 0;
+        end
+        
+        t = t + 1;
         
     end
     
     % Plot final state of the data
     figure
-    plot(data(:, 1), data(:, 2), 'b.')
+    plot(points_class1(:, 1), points_class1(:, 2), 'b.', 'MarkerSize', 10)
     hold on
-    plot(prototypes(:, 1), prototypes(:, 2), 'ro', 'MarkerFaceColor','r')
+    plot(prototypes(1:k/2, 1), prototypes(1:k/2, 2), 'bo', 'MarkerFaceColor','g', 'MarkerSize', 10)
+    plot(points_class2(:, 1), points_class2(:, 2), 'r.', 'MarkerSize', 10)
+    plot(prototypes(k/2+1:end, 1), prototypes(k/2+1:end, 2), 'ro', 'MarkerFaceColor','g', 'MarkerSize', 10)
     title('Final dataset with the prototypes')
     xlabel('x')
     ylabel('y')
-    legend('Data points', 'Prototypes')
+    legend('Class 1', 'Prototypes of class 1', 'Class 2', 'Prototypes of class 2')
     hold off
     
-    % Build title for the plot
-    p_title = 'Quantization error over epochs with K=';
-    p_title = strcat(p_title, sprintf("%d", k));
-    p_title = strcat(p_title, ', LR=');
-    p_title = strcat(p_title, sprintf("%.2f", n));
     % Plot quantization error or all epochs
     figure
-    plot(1:tmax, cost_function, 'k')
+    plot(1:numel(error), error, 'k')
     xlabel('Epoch')
-    ylabel('Quantization error')
-    title(p_title)
-    xlim([1, tmax])
+    ylabel('Error (%)')
+    title('Error plot')
+    ylim([1,100])
     hold off
     
 end
